@@ -1,6 +1,9 @@
+/** @type {import('@remix-run/dev').AppConfig} */
 export default {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
+	plugins: {
+		tailwindcss: {},
+		autoprefixer: {},
+	},
+	tailwind: true,
+	postcss: true,
 };

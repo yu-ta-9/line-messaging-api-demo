@@ -2,4 +2,7 @@ node_modules
 
 /.cache
 /build
+
 .env
+dev.db
+dev_qa.db
