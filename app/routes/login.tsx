@@ -3,11 +3,11 @@ import type {
 	LoaderFunctionArgs,
 	MetaFunction,
 } from "@remix-run/node";
-import { Form, Link, json, redirect } from "@remix-run/react";
+import { Form, Link, json, redirect, useActionData } from "@remix-run/react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { userPrefs } from "~/cookies.server";
 import { prisma } from "~/lib/prisma";
+import { commitSession, getSession } from "~/lib/session";
 
 export const meta: MetaFunction = () => {
 	return [
@@ -17,10 +17,9 @@ export const meta: MetaFunction = () => {
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
-	const cookieHeader = request.headers.get("Cookie");
-	const cookie = (await userPrefs.parse(cookieHeader)) || {};
+	const session = await getSession(request.headers.get("Cookie"));
 
-	if (cookie.userId) {
+	if (session.has("userId")) {
 		return redirect("/");
 	}
 
@@ -28,8 +27,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export const action: ActionFunction = async ({ request }) => {
-	const cookieHeader = request.headers.get("Cookie");
-	const cookie = (await userPrefs.parse(cookieHeader)) || {};
+	const session = await getSession(request.headers.get("Cookie"));
 
 	const formData = await request.formData();
 	const email = formData.get("email");
@@ -54,24 +52,30 @@ export const action: ActionFunction = async ({ request }) => {
 		return json({ errors: { title: "User not found" } }, { status: 401 });
 	}
 
-	cookie.userId = user.id;
-
+	session.set("userId", user.id);
 	const redirectUrl = request.headers.get("x-redirect-url");
+
 	return redirect(redirectUrl || "/", {
 		headers: {
-			"Set-Cookie": await userPrefs.serialize(cookie),
+			"Set-Cookie": await commitSession(session),
 		},
 	});
 };
 
 export default function Login() {
+	const actionData = useActionData<{ errors: { title: string } }>();
+
 	return (
 		<div className="flex h-screen items-center justify-center flex-col gap-4">
 			<h1 className="text-2xl font-bold">Login</h1>
 
 			<Form className="flex flex-col gap-4" replace method="post">
-				<Input type="email" placeholder="email" />
-				<Input type="password" placeholder="password" />
+				{actionData?.errors && (
+					<div className="text-red-500">{actionData.errors.title}</div>
+				)}
+
+				<Input type="email" name="email" placeholder="email" />
+				<Input type="password" name="password" placeholder="password" />
 
 				<Button type="submit">Login</Button>
 			</Form>

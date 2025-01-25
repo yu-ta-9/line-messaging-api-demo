@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { type LoaderFunctionArgs, redirect } from "@remix-run/node";
-import { userPrefs } from "~/cookies.server";
 import { prisma } from "~/lib/prisma";
+import { getSession } from "~/lib/session";
 
 export async function loader({ request }: LoaderFunctionArgs) {
 	const linkToken = new URL(request.url).searchParams.get("linkToken");
@@ -9,11 +9,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
 		return redirect("/", { status: 400 });
 	}
 
-	const cookie = (await userPrefs.parse(request.headers.get("Cookie"))) || {};
-	if (!cookie.userId) {
+	const session = await getSession(request.headers.get("Cookie"));
+
+	if (!session.has("userId")) {
 		return redirect("/login", {
 			headers: {
-				"x-redirect-url": "/connect?linkToken=#{link_token}",
+				"x-redirect-url": `/connect?linkToken=${linkToken}`,
 			},
 		});
 	}
@@ -22,7 +23,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 		const nonce = getNonce();
 		await prisma.user_line_nonce.upsert({
 			where: {
-				userId: cookie.userId,
+				userId: session.get("userId") as number,
 			},
 			update: {
 				// 1000 * 60 * 60 = 1 hour
@@ -30,7 +31,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 				nonce,
 			},
 			create: {
-				userId: cookie.userId,
+				userId: session.get("userId") as number,
 				nonce,
 				expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
 			},

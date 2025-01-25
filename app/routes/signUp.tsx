@@ -4,12 +4,12 @@ import {
 	type MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, redirect, useActionData } from "@remix-run/react";
+import { Form, Link, redirect, useActionData } from "@remix-run/react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { userPrefs } from "~/cookies.server";
 
 import { prisma } from "~/lib/prisma";
+import { commitSession, getSession } from "~/lib/session";
 
 export const meta: MetaFunction = () => {
 	return [
@@ -19,10 +19,9 @@ export const meta: MetaFunction = () => {
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
-	const cookieHeader = request.headers.get("Cookie");
-	const cookie = (await userPrefs.parse(cookieHeader)) || {};
+	const session = await getSession(request.headers.get("Cookie"));
 
-	if (cookie.userId) {
+	if (session.has("userId")) {
 		return redirect("/");
 	}
 
@@ -30,9 +29,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export const action: ActionFunction = async ({ request }) => {
-	const cookieHeader = request.headers.get("Cookie");
-	const cookie = (await userPrefs.parse(cookieHeader)) || {};
-
+	const session = await getSession(request.headers.get("Cookie"));
 	const formData = await request.formData();
 	const email = formData.get("email");
 	const password = formData.get("password");
@@ -50,19 +47,26 @@ export const action: ActionFunction = async ({ request }) => {
 		return json({ errors: { title: "Name is required" } }, { status: 422 });
 	}
 
-	const user = await prisma.user.create({
-		data: {
-			email,
-			password,
-			name,
-		},
-	});
+	try {
+		const user = await prisma.user.create({
+			data: {
+				email,
+				password,
+				name,
+			},
+		});
 
-	cookie.userId = user.id;
+		session.set("userId", user.id);
+	} catch (error) {
+		return json(
+			{ errors: { title: "Failed to create user" } },
+			{ status: 422 },
+		);
+	}
 
 	return redirect("/", {
 		headers: {
-			"Set-Cookie": await userPrefs.serialize(cookie),
+			"Set-Cookie": await commitSession(session),
 		},
 	});
 };
@@ -85,6 +89,8 @@ export default function SignUp() {
 
 				<Button type="submit">SignUp</Button>
 			</Form>
+
+			<Link to="/login">Login</Link>
 		</div>
 	);
 }
