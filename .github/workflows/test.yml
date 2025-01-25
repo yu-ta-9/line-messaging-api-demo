@@ -1,0 +1,40 @@
+name: test ci
+
+on:
+  pull_request:
+
+jobs:
+  node-test:
+    strategy:
+      matrix:
+        os: ['ubuntu-latest']
+        node: [20.x]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup nodeJs ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - uses: actions/cache@v4
+        id: npm-cache
+        with:
+          path: ${{ steps.npm-cache-dir.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm install
+
+      - name: lint test
+        run: npm run lint
+
+      - name: typescript test
+        run: npm run typecheck
