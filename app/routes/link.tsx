@@ -1,19 +1,53 @@
-import type { MetaFunction } from "@remix-run/node";
-import { Button } from "~/components/ui/button";
+import crypto from "node:crypto";
+import { type LoaderFunctionArgs, redirect } from "@remix-run/node";
+import { prisma } from "~/lib/prisma";
+import { getSession } from "~/lib/session";
 
-export const meta: MetaFunction = () => {
-  return [
-    { title: "LINE Messaging API Demo | Link" },
-    { name: "description", content: "LINE Messaging API Demo" },
-  ];
-};
+export async function loader({ request }: LoaderFunctionArgs) {
+  const linkToken = new URL(request.url).searchParams.get("linkToken");
+  if (!linkToken) {
+    return redirect("/", { status: 400 });
+  }
 
-export default function Link() {
-  return (
-    <div className="flex h-screen items-center justify-center flex-col gap-4">
-      <h1 className="text-2xl font-bold">Link</h1>
+  const session = await getSession(request.headers.get("Cookie"));
 
-      <Button>Click me</Button>
-    </div>
-  );
+  if (!session.has("userId")) {
+    return redirect(
+      `/login?r=${process.env.FRONTEND_URL}/link?linkToken=${linkToken}`,
+    );
+  }
+
+  try {
+    const nonce = getNonce();
+    await prisma.user_line_nonce.upsert({
+      where: {
+        userId: session.get("userId") as number,
+      },
+      update: {
+        // 1000 * 60 * 60 = 1 hour
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        nonce,
+      },
+      create: {
+        userId: session.get("userId") as number,
+        nonce,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      },
+    });
+
+    const linkUrl = `https://access.line.me/dialog/bot/accountLink?linkToken=${linkToken}&nonce=${nonce}`;
+    return redirect(linkUrl);
+  } catch (e) {
+    console.error(e);
+    return redirect("/", { status: 500 });
+  }
 }
+
+/**
+ * セキュアなランダム生成関数を使う。
+ * 少なくとも128ビット（16バイト）以上にする。
+ * Base64エンコードする。
+ */
+const getNonce = () => {
+  return crypto.randomBytes(16).toString("base64");
+};
