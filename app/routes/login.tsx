@@ -7,6 +7,7 @@ import { Form, Link, json, redirect, useActionData } from "@remix-run/react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { prisma } from "~/lib/prisma";
+import { validateRedirectUrl } from "~/lib/redirectUrl";
 import { commitSession, getSession } from "~/lib/session";
 
 export const meta: MetaFunction = () => {
@@ -53,13 +54,16 @@ export const action: ActionFunction = async ({ request }) => {
   }
 
   session.set("userId", user.id);
-  const redirectUrl = request.headers.get("x-redirect-url");
+  const redirectUrl = new URL(request.url).searchParams.get("r");
 
-  return redirect(redirectUrl || "/", {
-    headers: {
-      "Set-Cookie": await commitSession(session),
+  return redirect(
+    redirectUrl && validateRedirectUrl(redirectUrl) ? redirectUrl : "/",
+    {
+      headers: {
+        "Set-Cookie": await commitSession(session),
+      },
     },
-  });
+  );
 };
 
 export default function Login() {

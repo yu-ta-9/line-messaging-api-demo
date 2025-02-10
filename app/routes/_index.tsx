@@ -20,8 +20,6 @@ export const meta: MetaFunction = () => {
 export async function loader({ request }: LoaderFunctionArgs) {
   const session = await getSession(request.headers.get("Cookie"));
 
-  console.log("session", session.get("userId"));
-
   if (!session.has("userId")) {
     return redirect("/login");
   }
@@ -77,8 +75,6 @@ export default function Index() {
           <span className="text-red-500">Disconnected</span>
         )}
       </p>
-
-      <Button>Click me</Button>
 
       <Form method="delete">
         <Button type="submit">Logout</Button>

@@ -25,9 +25,13 @@ function createDatabaseSessionStorage({ cookie }: StoreGeneratorArg) {
         throw new Error("No userId or expires");
       }
 
-      const { id } = await prisma.session.create({
-        data: {
+      const { id } = await prisma.session.upsert({
+        where: { userId: data.userId },
+        create: {
           userId: data.userId,
+          expiresAt: expires,
+        },
+        update: {
           expiresAt: expires,
         },
       });
@@ -40,7 +44,7 @@ function createDatabaseSessionStorage({ cookie }: StoreGeneratorArg) {
       await prisma.session.update({
         where: { id },
         data: {
-          userId: Number(data.userId),
+          userId: data.userId as number,
           expiresAt: expires,
         },
       });
