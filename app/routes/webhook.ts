@@ -51,7 +51,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                     {
                       type: "uri",
                       label: "アカウントを連携する",
-                      uri: `${process.env.FRONTEND_URL}/connect?linkToken=${linkTokenResponse.linkToken}`,
+                      uri: `${process.env.FRONTEND_URL}/link?linkToken=${linkTokenResponse.linkToken}`,
                     },
                   ],
                 },
